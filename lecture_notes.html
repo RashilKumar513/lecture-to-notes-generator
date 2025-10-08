@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecture to Notes Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-indigo': '#4f46e5', // Bright Indigo for primary elements/text
+                        'primary-dark': '#1e3a8a', // Dark Blue for deep contrast
+                        'accent-gold': '#fbbf24', // Bright Gold for accents/buttons
+                        'background-light': '#f9fafb', // Very Light Gray background
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700;900&display=swap');
+        
+        body {
+            background-color: #f9fafb; /* Use background-light */
+        }
+        
+        .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+
+        .response-container pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 1.5rem; /* Increased padding */
+            background-color: #ffffff;
+            border-radius: 1rem; /* Bolder radius */
+            border: 1px solid #e5e7eb;
+            box-shadow: inset 0 1px 3px 0 rgba(0, 0, 0, 0.05); /* Subtle inner shadow for depth */
+        }
+        
+        .gradient-header {
+            /* Slightly deeper, more vibrant gradient */
+            background-image: linear-gradient(to right bottom, #3f35c5, #4f46e5, #6366f1);
+            box-shadow: 0 15px 25px -5px rgba(30, 58, 138, 0.4); /* Stronger shadow with dark blue tint */
+        }
+
+        .card-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        /* Interactive Card hover effect */
+        .card-shadow:hover {
+            box-shadow: 0 15px 20px -3px rgba(0, 0, 0, 0.15), 0 6px 10px -2px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Custom scrollbar styling */
+        .overflow-y-auto::-webkit-scrollbar {
+            width: 8px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        /* Fix for Print/PDF */
+        @media print {
+            .max-w-4xl > header, .max-w-4xl > div:nth-child(2), .response-container > div:last-child, .download-group, .explainer-section {
+                display: none;
+            }
+            .response-container {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+            .response-container pre {
+                box-shadow: none !important;
+                border: none !important;
+                background-color: transparent !important;
+                padding: 0 !important;
+            }
+            body {
+                background-color: #fff !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-background-light font-sans min-h-screen p-4 sm:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <!-- Header: Vibrant Gradient -->
+        <header class="text-center mb-8 p-8 gradient-header rounded-2xl shadow-xl">
+            <h1 class="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
+                <span class="text-accent-gold">Gemini</span> Lecture to Notes Generator
+            </h1>
+            <p class="text-indigo-100 mt-3 text-lg font-medium">Convert lectures into focused study notes, quizzes, and transcripts.</p>
+        </header>
+
+        <!-- Main Form & Input: White Card with Shadow -->
+        <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl card-shadow mb-8">
+            <div id="statusMessage" class="hidden p-3 mb-4 text-sm font-medium rounded-lg text-center font-semibold" role="alert"></div>
+
+            <!-- API Key Input -->
+            <div class="mb-6">
+                <label for="apiKeyInput" class="block text-lg font-bold text-primary-indigo mb-2">
+                    0. Enter Your Gemini API Key <span class="text-gray-500 text-sm font-normal">(Required)</span>
+                </label>
+                <input type="text" id="apiKeyInput" placeholder="Paste your API key here..." 
+                       class="w-full p-4 border-2 border-red-400 rounded-xl focus:ring-4 focus:ring-accent-gold/50 focus:border-accent-gold transition duration-150 text-lg shadow-sm"
+                       aria-describedby="apiKeyHelp">
+                <p id="apiKeyHelp" class="text-sm text-gray-500 mt-1">Your key is saved locally in the browser. <a href="https://ai.google.dev/gemini-api/docs/api-key" target="_blank" class="text-primary-indigo hover:underline font-medium">Get a key here.</a></p>
+            </div>
+            
+            <div class="space-y-6">
+                <!-- 1. File Upload Input -->
+                <div class="p-4 bg-indigo-50/50 border border-indigo-200 rounded-xl transition duration-300 hover:ring-2 hover:ring-primary-indigo/30">
+                    <label for="audioVideoFile" class="block text-lg font-semibold text-primary-dark mb-2">
+                        1A. Select Local Audio/Video File (.mp4, .mp3, .wav)
+                    </label>
+                    <input type="file" id="audioVideoFile" accept="audio/*, video/mp4, video/quicktime, video/webm" class="w-full text-gray-700 bg-white border border-gray-300 rounded-xl cursor-pointer focus:outline-none file:mr-4 file:py-3 file:px-5 file:rounded-xl file:border-0 file:text-base file:font-bold file:bg-primary-indigo file:text-white hover:file:bg-indigo-700 transition duration-150 shadow-md">
+                    <p class="text-sm text-gray-600 mt-1">Upload files up to ~1GB.</p>
+                </div>
+
+                <div class="flex items-center justify-center">
+                    <div class="w-full h-px bg-gray-300"></div>
+                    <span class="px-3 text-primary-dark font-medium">OR</span>
+                    <div class="w-full h-px bg-gray-300"></div>
+                </div>
+
+                <!-- 2. URL Input -->
+                <div class="p-4 bg-yellow-50/50 border border-yellow-200 rounded-xl transition duration-300 hover:ring-2 hover:ring-accent-gold/30">
+                    <label for="mediaUrl" class="block text-lg font-semibold text-primary-dark mb-2">
+                        1B. Paste Any Link (Web Page, YouTube, Article, etc.)
+                    </label>
+                    <input type="url" id="mediaUrl" placeholder="Paste a link (e.g., a YouTube video URL)..." class="w-full p-4 border border-gray-300 rounded-xl focus:ring-4 focus:ring-accent-gold/50 focus:border-accent-gold transition duration-150 shadow-sm">
+                    <div class="mt-2 p-2 text-xs bg-yellow-100/70 border border-yellow-300 text-gray-800 rounded-lg font-medium">
+                        <strong>Note on Links:</strong> The AI synthesizes notes from the webpage content and metadata, not the raw video stream.
+                    </div>
+                </div>
+            </div>
+
+            <button id="generateButton" disabled class="mt-8 w-full py-4 px-4 bg-primary-indigo text-white font-black text-xl rounded-xl shadow-2xl hover:bg-indigo-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transform hover:scale-[1.005]">
+                <span id="buttonText">Generate Notes</span>
+                <div id="loader" class="hidden loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-6 w-6 ml-3"></div>
+            </button>
+        </div>
+
+        <!-- Output Area: Enhanced Card -->
+        <div class="response-container bg-white p-6 sm:p-8 rounded-2xl shadow-2xl card-shadow">
+            <h2 class="text-2xl font-bold text-primary-indigo mb-4 flex items-center justify-between">
+                <span>Generated Notes & Study Aids</span>
+                
+                <!-- Download Button (Simplified to MD) -->
+                <button id="downloadButton" disabled class="text-sm px-4 py-2 bg-accent-gold text-primary-dark font-bold rounded-xl shadow-lg hover:bg-yellow-400 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transform hover:scale-[1.03]">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-1">
+                        <path d="M10 2a.75.75 0 0 1 .75.75v8.5a.75.75 0 0 1-1.5 0V2.75A.75.75 0 0 1 10 2ZM5.25 12.75a.75.75 0 0 0 0 1.5h9.5a.75.75 0 0 0 0-1.5h-9.5Zm-1 2.25a.75.75 0 0 0 0 1.5h11.5a.75.75 0 0 0 0-1.5H4.25Z" />
+                        <path fill-rule="evenodd" d="M15.375 16.5a.75.75 0 0 0 0-1.5h-2.5a.75.75 0 0 0 0 1.5h2.5Zm1-3.5a.75.75 0 0 0 0-1.5H10a.75.75 0 0 0 0 1.5h6.375Z" clip-rule="evenodd" />
+                    </svg>
+                    Download Notes (.md)
+                </button>
+            </h2>
+
+            <!-- Results Display -->
+            <div id="results" class="min-h-[200px] border border-gray-300 p-4 rounded-xl bg-background-light overflow-y-auto">
+                <p id="placeholderText" class="text-gray-500 italic text-center p-12">
+                    Upload a file or enter a direct media URL and click "Generate Notes" to see the full transcript, structured notes, and study aids here.
+                    <br>
+                    *Processing time depends on media length/content complexity.*
+                </p>
+            </div>
+
+            <!-- Key Concept Explainer Section (NEW FEATURE) -->
+            <div class="mt-8 p-6 bg-primary-indigo/10 border border-primary-indigo/30 rounded-xl shadow-inner explainer-section">
+                <h3 class="text-xl font-bold text-primary-dark mb-3 flex items-center">
+                    ✨ Key Concept Explainer
+                </h3>
+                <p class="text-sm text-gray-700 mb-3">
+                    Highlight any phrase in the notes above to ask Gemini for a deeper explanation, simplification, or related examples.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
+                    <input type="text" id="conceptInput" placeholder="Selected concept appears here..." disabled 
+                           class="w-full p-3 border border-gray-300 rounded-xl bg-white shadow-sm disabled:bg-gray-100 disabled:text-gray-600">
+                    <button id="askGeminiButton" disabled 
+                            class="flex-shrink-0 px-6 py-3 bg-primary-indigo text-white font-semibold rounded-xl shadow-md hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                        Ask Gemini
+                    </button>
+                </div>
+
+                <div id="explainerOutput" class="mt-4 hidden min-h-[50px] p-4 bg-white border border-gray-200 rounded-xl text-sm whitespace-pre-wrap">
+                    <!-- Explainer output will go here -->
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h3 class="text-lg font-semibold text-primary-dark mb-2">Google Search Grounding Sources (If Used):</h3>
+                <ul id="sourcesList" class="text-sm text-gray-600 list-disc list-inside space-y-1"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- API & FIREBASE SETUP (DO NOT EDIT THESE GLOBAL VARIABLES) ---
+        // The API key will be managed locally via the input field and local storage.
+        const modelName = "gemini-2.5-flash-preview-05-20";
+        const localStorageKey = 'geminiApiKey';
+
+        function getApiKey() {
+            return document.getElementById('apiKeyInput').value.trim();
+        }
+        
+        function getApiUrl() {
+            const key = getApiKey();
+            return `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
+        }
+        // ------------------------------------------------------------------
+
+        const audioVideoFileInput = document.getElementById('audioVideoFile');
+        const mediaUrlInput = document.getElementById('mediaUrl');
+        const generateButton = document.getElementById('generateButton');
+        const loader = document.getElementById('loader');
+        const buttonText = document.getElementById('buttonText');
+        const resultsDiv = document.getElementById('results');
+        const placeholderText = document.getElementById('placeholderText');
+        const statusMessage = document.getElementById('statusMessage');
+        const sourcesList = document.getElementById('sourcesList');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const downloadButton = document.getElementById('downloadButton'); 
+        
+        // NEW ELEMENTS for Key Concept Explainer
+        const explainerOutput = document.getElementById('explainerOutput');
+        const conceptInput = document.getElementById('conceptInput');
+        const askGeminiButton = document.getElementById('askGeminiButton');
+        // NOTE: downloadFormatSelect is removed since we only support MD now
+
+        let currentInputSource = { data: null, mimeType: null, name: null, type: null }; // Stores the active input
+        let lastGeneratedMarkdown = ""; // Store the final generated content for download
+
+        // Helper function for exponential backoff retry logic
+        async function fetchWithRetry(url, options, maxRetries = 5) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429) {
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`API Request failed with status ${response.status}: ${errorData.error.message || response.statusText}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        throw error;
+                    }
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        // --- API Key Management ---
+        function loadApiKey() {
+            const storedKey = localStorage.getItem(localStorageKey);
+            if (storedKey) {
+                apiKeyInput.value = storedKey;
+                // Update status on load
+                if (storedKey.length > 0) {
+                     apiKeyInput.classList.remove('border-red-400');
+                     apiKeyInput.classList.add('border-green-400');
+                }
+            }
+        }
+
+        apiKeyInput.addEventListener('input', () => {
+            const key = getApiKey();
+            localStorage.setItem(localStorageKey, key);
+            updateInputSource(); // Trigger re-check of button state
+            
+            // Visual feedback for key status
+            if (key.length > 0) {
+                apiKeyInput.classList.remove('border-red-400');
+                apiKeyInput.classList.add('border-green-400');
+            } else {
+                apiKeyInput.classList.remove('border-green-400');
+                apiKeyInput.classList.add('border-red-400');
+            }
+        });
+
+
+        // --- Input Change Handlers ---
+
+        function updateInputSource() {
+            const file = audioVideoFileInput.files[0];
+            const url = mediaUrlInput.value.trim();
+            const apiKey = getApiKey();
+            
+            // Set input source data and clean up opposing input
+            if (file) {
+                currentInputSource = { data: file, mimeType: file.type, name: file.name, type: 'file' };
+                mediaUrlInput.value = ''; // Clear URL field
+                // NEW: Update button text instead of using the status bar for "ready" state
+                buttonText.textContent = `Generate Notes for: ${file.name.substring(0, 20)}...`; 
+                hideStatus(); // Keep status message hidden
+            } else if (url) {
+                currentInputSource = { data: url, mimeType: null, name: url, type: 'url' };
+                audioVideoFileInput.value = ''; // Clear file input
+                // NEW: Update button text instead of using the status bar for "ready" state
+                const urlDisplay = url.length > 30 ? url.substring(0, 30) + '...' : url;
+                buttonText.textContent = `Generate Notes for: ${urlDisplay}`;
+                hideStatus(); // Keep status message hidden
+            } else {
+                currentInputSource = { data: null, mimeType: null, name: null, type: null };
+                buttonText.textContent = 'Generate Notes'; // Reset button text
+                hideStatus(); 
+            }
+
+            // Set button state
+            if (!apiKey) {
+                generateButton.disabled = true;
+                if (file || url) {
+                    showStatus('API Key is missing. Please enter your key to enable generation.', 'bg-red-100 text-red-800 font-semibold');
+                }
+            } else if (!file && !url) {
+                generateButton.disabled = true;
+                showStatus('Enter a URL or upload a file to begin.', 'bg-gray-100 text-gray-800 font-medium');
+            } else {
+                generateButton.disabled = false;
+            }
+        }
+
+        audioVideoFileInput.addEventListener('change', updateInputSource);
+        mediaUrlInput.addEventListener('input', updateInputSource);
+        
+        // --- New Feature Event Listener: Highlight Text for Explainer ---
+        resultsDiv.addEventListener('mouseup', () => {
+            const selection = window.getSelection().toString().trim();
+            // Only enable the button if selection is a reasonable length for a concept
+            if (selection.length > 5 && selection.length < 150) {
+                conceptInput.value = selection;
+                askGeminiButton.disabled = false;
+            } else {
+                conceptInput.value = '';
+                askGeminiButton.disabled = true;
+            }
+        });
+        
+        // --- New Feature Event Listener: Ask Gemini for Explanation ---
+        askGeminiButton.addEventListener('click', async () => {
+            const concept = conceptInput.value.trim();
+            if (!concept || !getApiKey()) return;
+
+            askGeminiButton.disabled = true;
+            explainerOutput.classList.remove('hidden');
+            explainerOutput.textContent = '... Asking Gemini for explanation, please wait...';
+            explainerOutput.classList.add('animate-pulse');
+
+            try {
+                const response = await callGeminiExplainerApi(concept);
+
+                explainerOutput.classList.remove('animate-pulse');
+                
+                if (response.error) {
+                    explainerOutput.textContent = `Error: ${response.error}`;
+                    explainerOutput.classList.add('text-red-600');
+                } else {
+                    explainerOutput.textContent = response.text;
+                    explainerOutput.classList.remove('text-red-600');
+                }
+            } catch (error) {
+                explainerOutput.classList.remove('animate-pulse');
+                explainerOutput.textContent = `Explainer failed: ${error.message}`;
+                explainerOutput.classList.add('text-red-600');
+            } finally {
+                askGeminiButton.disabled = false;
+            }
+        });
+
+
+        // --- Main Generation Logic ---
+
+        generateButton.addEventListener('click', async () => {
+            if (!getApiKey()) {
+                 showStatus('Error: API Key is missing. Please enter your key in Section 0.', 'bg-red-100 text-red-800 font-semibold');
+                 return;
+            }
+            if (!currentInputSource.data) {
+                showStatus('Error: Please provide a file or a URL in Section 1.', 'bg-red-100 text-red-800 font-semibold');
+                return;
+            }
+
+            // Reset UI
+            resultsDiv.innerHTML = '';
+            sourcesList.innerHTML = '';
+            placeholderText.classList.add('hidden');
+            downloadButton.disabled = true; // Disable download button before processing
+            conceptInput.value = ''; // Reset explainer input
+            askGeminiButton.disabled = true; // Disable explainer button
+            explainerOutput.classList.add('hidden'); // Hide explainer output
+            
+            showLoading(true);
+
+            try {
+                let base64Data = null;
+                let mimeType = null;
+                let sourceData = currentInputSource.data;
+
+                if (currentInputSource.type === 'file') {
+                    // 1. Handle Local File Upload (Audio/Video)
+                    base64Data = await fileToBase64(currentInputSource.data);
+                    mimeType = currentInputSource.mimeType;
+                    // Status message only for active processing
+                    showStatus(`Processing local file via Gemini API: "${currentInputSource.name}"...`, 'bg-indigo-100 text-primary-indigo font-medium');
+                    sourceData = null; // Clear URL data if processing file
+                } else if (currentInputSource.type === 'url') {
+                    // 2. Handle URL Input (Pass URL to API for search grounding)
+                    // Status message only for active processing
+                    showStatus(`Analyzing content from URL: "${currentInputSource.name}"...`, 'bg-indigo-100 text-primary-indigo font-medium');
+                }
+
+                if (currentInputSource.type === 'file' && (!base64Data || !mimeType)) {
+                     throw new Error("Failed to convert file media to Base64 data.");
+                }
+                
+                // Call API: It handles either Base64+MIME (file) OR sourceData (URL)
+                const response = await callGeminiApi(base64Data, mimeType, sourceData);
+                
+                if (response.error) {
+                    throw new Error(response.error);
+                }
+
+                displayResults(response.text, response.sources);
+                downloadButton.disabled = false; // Enable download button after successful results
+                showStatus('Notes successfully generated! Click Download Notes to save your file.', 'bg-green-100 text-green-800 font-semibold');
+
+            } catch (error) {
+                console.error('Generation Error:', error);
+                displayResults(`
+                    <h3 class="text-xl font-bold text-red-600 mb-2">Error</h3>
+                    <pre class="text-red-500">${error.message || 'An unknown error occurred during processing. Check the console for details.'}</pre>
+                `);
+                downloadButton.disabled = true; // Ensure download button is disabled on failure
+                showStatus(`Generation failed: ${error.message}`, 'bg-red-100 text-red-800 font-semibold');
+            } finally {
+                showLoading(false);
+            }
+        });
+        
+        // --- Download Logic (Simplified to MD) ---
+
+        downloadButton.addEventListener('click', () => {
+            if (!lastGeneratedMarkdown) return;
+
+            const sourceName = currentInputSource.name || 'lecture';
+            const baseFilename = `gemini_notes_${sourceName.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 30)}`;
+            const content = lastGeneratedMarkdown;
+            const filename = `${baseFilename}.md`;
+            const mimeType = 'text/markdown;charset=utf-8';
+            
+            downloadContent(filename, content, mimeType);
+            showStatus(`File downloaded as .md.`, 'bg-green-100 text-green-800 font-semibold');
+        });
+
+        function downloadContent(filename, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- Data Conversion Functions ---
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64String = reader.result.split(',')[1];
+                    resolve(base64String);
+                };
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // --- UI Helper Functions ---
+
+        function showLoading(isLoading) {
+            generateButton.disabled = isLoading;
+            loader.classList.toggle('hidden', !isLoading);
+            if (isLoading) {
+                buttonText.textContent = 'Analyzing Content...';
+            } else {
+                buttonText.textContent = 'Generate Notes';
+                updateInputSource(); // Re-check state to enable/disable button correctly
+            }
+        }
+
+        function showStatus(message, classes) {
+            statusMessage.textContent = message;
+            statusMessage.className = `p-3 mb-4 text-sm font-medium rounded-lg text-center ${classes}`;
+            statusMessage.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            statusMessage.classList.add('hidden');
+        }
+
+        function displayResults(markdownText, sources) {
+            let outputContent = markdownText;
+
+            // CRITICAL FIX: Add a clear warning if a URL was used to manage expectations
+            if (currentInputSource.type === 'url') {
+                const urlWarning = `
+### ⚠️ Important Note on URL/Video Analysis
+The content below is generated by synthesizing available public information related to the URL (title, description, captions, and related web searches) because direct, full transcription of external videos is not possible in this environment. If the content seems generic or doesn't match the spoken words, the source video may not have public captions available for the AI to read.
+---
+`;
+                // Prepend the warning message
+                outputContent = urlWarning + markdownText;
+            }
+
+            // Store the final content (including the warning) for download
+            lastGeneratedMarkdown = outputContent;
+
+            // Display markdown content in a pre tag for better formatting preservation
+            resultsDiv.innerHTML = `<pre class="whitespace-pre-wrap">${outputContent}</pre>`;
+            
+            // Display sources
+            if (sources.length > 0) {
+                sourcesList.innerHTML = sources.map(source => 
+                    `<li><a href="${source.uri}" target="_blank" class="text-blue-600 hover:text-blue-800 truncate">${source.title}</a></li>`
+                ).join('');
+            } else {
+                sourcesList.innerHTML = '<li class="text-gray-500 italic">No external sources were used for grounding the content.</li>';
+            }
+        }
+
+        // --- API Call Logic (Unified for File and URL) ---
+
+        async function callGeminiApi(base64Data, mimeType, sourceData) {
+            let userQuery;
+            let parts = [];
+            
+            // The system instruction is updated for better focus and accuracy
+            const systemInstructionText = "You are a professional academic assistant specializing in creating focused study materials. Your task is to process the provided input (either a media file or a URL). Generate three distinct, clearly labeled sections, ensuring the content is accurate, avoids conversational filler, and focuses exclusively on core academic concepts and essential information: **Summary/Transcript**, **Structured Lecture Notes**, and **Quiz/Flashcards**.";
+
+            if (base64Data && mimeType) {
+                // Case 1: Local File Upload (Audio/Video)
+                userQuery = "Process the media file. Output three distinct sections: 1. **FULL TRANSCRIPT** (the complete text). 2. **STRUCTURED LECTURE NOTES** (organized with clear headings, bullet points, and definitions). 3. **QUIZ & FLASHCARDS** (a 5-question multiple-choice quiz or 5 key flashcards for self-testing). Ensure each section is clearly separated with Markdown headings.";
+                parts.push({ text: userQuery });
+                parts.push({ inlineData: { mimeType: mimeType, data: base64Data } });
+            } else if (sourceData) {
+                // Case 2: URL/Link Analysis (uses Search Grounding)
+                userQuery = `Analyze the content and context for this URL: ${sourceData}. Because direct video content access is limited, you must synthesize the entire response from the provided search grounding results (including title, description, and related text snippets). Output three distinct, comprehensive sections based on the synthesized information: 1. **SUMMARY & SOURCE ANALYSIS** (a concise, academic summary of the *topic* and the *source information found*). 2. **STRUCTURED LECTURE NOTES** (organized with clear headings, bullet points, and definitions). 3. **QUIZ & FLASHCARDS** (5 questions or 5 flashcards for self-testing). Ensure all three sections are clearly separated with Markdown headings.`;
+                parts.push({ text: userQuery });
+            } else {
+                throw new Error("Missing media content or URL.");
+            }
+
+            const payload = {
+                contents: [{ parts: parts }],
+                // Google Search is MANDATORY for URL analysis and helpful for fact-checking file transcripts
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemInstructionText }]
+                },
+            };
+
+            try {
+                const response = await fetchWithRetry(getApiUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                if (!candidate || !candidate.content?.parts?.[0]?.text) {
+                    return { error: 'Invalid or empty response from the Gemini API.' };
+                }
+
+                // 1. Extract the generated text
+                const text = candidate.content.parts[0].text;
+
+                // 2. Extract grounding sources
+                let sources = [];
+                const groundingMetadata = candidate.groundingMetadata;
+                if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                    sources = groundingMetadata.groundingAttributions
+                        .map(attribution => ({
+                            uri: attribution.web?.uri,
+                            title: attribution.web?.title,
+                        }))
+                        .filter(source => source.uri && source.title);
+                }
+
+                return { text, sources };
+
+            } catch (error) {
+                console.error("API Call Error:", error);
+                return { error: error.message || 'Failed to connect to the API.' };
+            }
+        }
+        
+        // --- NEW API Call Function for Explainer ---
+
+        async function callGeminiExplainerApi(concept) {
+            const systemInstructionText = "You are an expert academic explainer. Your task is to provide a concise, simple, and detailed explanation for the key concept provided by the user. Include a clear definition and one illustrative example. Do not use Markdown headings or lists; output clean, formatted paragraphs.";
+            
+            const userQuery = `Explain the following concept thoroughly and simply: "${concept}"`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                // Search grounding is useful here to verify the concept
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemInstructionText }]
+                },
+            };
+
+            try {
+                const response = await fetchWithRetry(getApiUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                if (!candidate || !candidate.content?.parts?.[0]?.text) {
+                    return { error: 'Invalid or empty response from the Gemini API.' };
+                }
+
+                // We only care about the text for the explainer
+                return { text: candidate.content.parts[0].text };
+
+            } catch (error) {
+                console.error("Explainer API Call Error:", error);
+                return { error: error.message || 'Failed to connect to the Explainer API.' };
+            }
+        }
+
+        // Initial check to set button state and load API key
+        window.onload = () => {
+            loadApiKey();
+            updateInputSource();
+        };
+    </script>
+</body>
+</html>
