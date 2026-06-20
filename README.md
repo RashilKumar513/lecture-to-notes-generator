@@ -7,11 +7,6 @@ A simple, static web-based tool that converts lecture content into summarized no
 - Clean, responsive HTML interface
 - No backend required — runs entirely in the browser
 
-## Files
-- `index.html` — main UI
-- `styles.css` — styling (if present)
-- `script.js` — frontend logic (if present)
-- `README.md` — this file
 
 ## How to use
 1. Open `index.html` in a web browser.
@@ -24,12 +19,3 @@ A simple, static web-based tool that converts lecture content into summarized no
   python -m http.server 8000
 
 Then visit `http://localhost:8000`.
-
-## Customize
-- Improve styling by editing `styles.css`.
-- Add more advanced summarization in `script.js` using client-side models or calls to an API.
-
-## License
-Add a LICENSE file to specify how others may use this project.
-
-Repository: https://github.com/RashilKumar513/lecture-to-notes-generator
